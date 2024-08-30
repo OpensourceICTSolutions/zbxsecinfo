@@ -1,0 +1,2 @@
+# zbxsecinfo
+Zabbix Security Advisories
