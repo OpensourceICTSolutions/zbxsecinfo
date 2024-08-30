@@ -1,0 +1,286 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+  templates:
+    - uuid: 534dde4e33b144ef8c82a30d78b3273d
+      template: 'Zabbix Security Advisories'
+      name: 'Zabbix Security Advisories'
+      description: 'Monitors the Zabbix Security Advisories, as published on https://www.zabbix.com/security_advisories'
+      groups:
+        - name: Templates
+      items:
+        - uuid: 7162b69876ad4412a6d41b12dc50acac
+          name: 'Retrieve the Zabbix Security Advisories'
+          type: HTTP_AGENT
+          key: zbx_sec
+          delay: 1h
+          value_type: TEXT
+          trends: '0'
+          description: 'Retrieves the Zabbix Security Feed JSON file from {$ZBX_ADVISORY_URI}'
+          url: '{$ZBX_ADVISORY_URI}'
+          tags:
+            - tag: component
+              value: zabbix_security
+            - tag: type
+              value: discovery
+        - uuid: 823235a1def84a178b96759f367ff423
+          name: 'Last Updated'
+          type: DEPENDENT
+          key: zbx_sec.last_updated
+          delay: '0'
+          units: unixtime
+          description: 'Determines the last-updated value for the JSON file and stores the value as unixtime'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.last_updated.secs
+          master_item:
+            key: zbx_sec
+          tags:
+            - tag: component
+              value: zabbix_security
+            - tag: type
+              value: last_updated
+          triggers:
+            - uuid: 17a25989a4f1428190744cbe22bf8027
+              expression: 'last(/Zabbix Security Advisories/zbx_sec.last_updated)>{$ZBX_ADVISORY_UPDATE_INTERVAL}*{$ZBX_ADVISORY_UPDATE_THRESHOLD}'
+              name: 'JSON Feed is out of date'
+              event_name: 'JSON Feed hasn''t been updated in the last {$ZBX_ADVISORY_UPDATE_INTERVAL}{$ZBX_ADVISORY_UPDATE_THRESHOLD} hours'
+              priority: WARNING
+              description: 'The Zabbix Security Advistory JSON Feed hasn''t been updated in the last {$ZBX_ADVISORY_UPDATE_INTERVAL}{$ZBX_ADVISORY_UPDATE_THRESHOLD} hours'
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: zabbix_security
+        - uuid: 0dccfebb9b98426792460ff2c65eb8a3
+          name: 'Number of advisories'
+          type: DEPENDENT
+          key: zbx_sec.num_advisories
+          delay: '0'
+          description: 'Calculates the number of published Security Advisories'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.reports.length()
+          master_item:
+            key: zbx_sec
+          tags:
+            - tag: component
+              value: zabbix_security
+            - tag: type
+              value: num_advisories
+          triggers:
+            - uuid: 6e61dfad8f4c420da5a9e7739d7c4fcf
+              expression: 'change(/Zabbix Security Advisories/zbx_sec.num_advisories)>0'
+              name: 'A new Zabbix Security Advisory has been published'
+              priority: HIGH
+              description: 'A new Zabbix Security Advisory has been published, you might want to review it'
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: zabbix_security
+      discovery_rules:
+        - uuid: 020feb39ccaa4c67bfdfdf376fc0bdaf
+          name: 'Discover Advisories'
+          type: DEPENDENT
+          key: zbx_sec.advisories
+          delay: '0'
+          description: 'Discovers all advisories from the retrieved JSON, and creates the items required for displays'
+          item_prototypes:
+            - uuid: 8785301800594c878dd60b161d9bc182
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Acknowledgement'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_acknowledgement[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''acknowledgement'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].acknowledgement.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: acknowledgement
+            - uuid: e9299c0833e446c7860ffb196692a4b5
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Components'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_components[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''components'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].components'
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      components = JSON.parse(value);
+                      return components.toString();
+                      
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: components
+            - uuid: 964297c3d0864778b6c41636f94d49ed
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Description'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_description[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''description'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].description.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: description
+            - uuid: 6a637e27c8d647a6b23ae5baa46d82d8
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Resolution'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_resolution[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''resolution'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].resolution.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: resolution
+            - uuid: 2ea4f0848a7347e980dcd322bd2017ab
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - CVSS Score'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_score[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''CVSS Score'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].score.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: cvss_score
+            - uuid: 38cd9b4b3c46453cb70f7d9a68b622d2
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Synopsis'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_synopsis[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''synopsis'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].synopsis.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: synopsis
+            - uuid: 16e1f013634240328a822b04f274b078
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Vectors'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_vectors[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''vectors'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].vectors.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: vectors
+            - uuid: b471ad5cf82d4972a83e6b0824a596c3
+              name: 'Advisory {#ZBXREF} / {#CVEREF} - Workaround'
+              type: DEPENDENT
+              key: 'zbx_sec.advisory_workaround[{#ZBXREF}]'
+              delay: '0'
+              value_type: TEXT
+              trends: '0'
+              description: 'Shows the ''workaround'' for the advisory, as published by Zabbix'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.reports[*]["{#ZBXREF}"].workaround.first()'
+              master_item:
+                key: zbx_sec
+              tags:
+                - tag: advisory
+                  value: '{#ZBXREF}'
+                - tag: component
+                  value: zabbix_security
+                - tag: type
+                  value: workaround
+          master_item:
+            key: zbx_sec
+          lld_macro_paths:
+            - lld_macro: '{#CVEREF}'
+              path: $.cveref
+            - lld_macro: '{#ZBXREF}'
+              path: $.zbxref
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.reports[*][*]'
+      macros:
+        - macro: '{$ZBX_ADVISORY_UPDATE_INTERVAL}'
+          value: 2h
+          description: 'How often is the advisory JSON updated?'
+        - macro: '{$ZBX_ADVISORY_UPDATE_THRESHOLD}'
+          value: '3'
+          description: 'Determines the maximum amount of time the JSON may be left un-updated. This macro is used in the trigger {$ZBX_ADVISORY_UPDATE_INTERVAL}*{$ZBX_ADVISORY_UPDATE_THRESHOLD}'
+        - macro: '{$ZBX_ADVISORY_URI}'
+          value: 'http://zbxsecurityinfo.s3-website.eu-central-1.amazonaws.com/index.json'
+          description: 'The URL where the find the JSON data for all advisories that are published'
