@@ -49,7 +49,7 @@ zabbix_export:
               name: 'JSON Feed is out of date'
               event_name: 'JSON Feed hasn''t been updated in the last {$ZBX_ADVISORY_UPDATE_INTERVAL}{$ZBX_ADVISORY_UPDATE_THRESHOLD} hours'
               priority: WARNING
-              description: 'The Zabbix Security Advistory JSON Feed hasn''t been updated in the last {$ZBX_ADVISORY_UPDATE_INTERVAL}{$ZBX_ADVISORY_UPDATE_THRESHOLD} hours'
+              description: 'The Zabbix Security Advisory JSON Feed hasn''t been updated in the last {$ZBX_ADVISORY_UPDATE_INTERVAL}{$ZBX_ADVISORY_UPDATE_THRESHOLD} hours'
               manual_close: 'YES'
               tags:
                 - tag: component
